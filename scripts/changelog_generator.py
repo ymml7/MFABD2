@@ -4,6 +4,7 @@
 """
 
 import os
+import pathlib
 import sys
 import re
 from typing import List, Dict
@@ -269,6 +270,19 @@ def generate_changelog_content(commits: List[Dict], current_tag: str, compare_ba
     # 构建变更日志
     changelog = f"# 更新日志\n\n"
     changelog += f"## {current_tag}\n\n"
+
+    # 读取 Release 头部草稿 (draft_release_header.md)
+    draft_header_path = os.path.join(os.path.dirname(__file__), 'draft_release_header.md')
+    if os.path.exists(draft_header_path):
+        try:
+            with open(draft_header_path, 'r', encoding='utf-8') as f:
+                header_content = f.read().strip()
+                if header_content:
+                    print(f"📖 发现发布草稿，已插入 Release 头部: {draft_header_path}")
+                    changelog += header_content + "\n\n---\n\n" # 加上分隔符和换行
+        except Exception as e:
+            print(f"⚠️ 读取发布草稿失败: {e}")
+
     try:
         changelog += get_beta_preview_content(compare_base, current_tag)
     except Exception as e:
@@ -416,6 +430,58 @@ def add_historical_versions(current_changelog: str, current_tag: str) -> str:
         # 不终止作业，返回原始内容
         return current_changelog
 
+def update_app_announcement(current_tag: str):
+    """
+    读取 draft_app_msg.md 并插入到 1.公告.md 的信标位置
+    """
+    # 路径定义
+    script_dir = os.path.dirname(__file__)
+    draft_path = os.path.join(script_dir, 'draft_app_msg.md')
+    # 假设 assets 在 scripts 的上一级的 assets 目录
+    target_path = os.path.join(script_dir, '../assets/resource/Announcement/1.公告.md')
+    
+    # 信标定义 (必须与 1.公告.md 里的完全一致)
+    ANCHOR = "<!-- Msg-Anch -->"
+
+    # 1. 检查草稿是否存在且有内容
+    if not os.path.exists(draft_path):
+        print("ℹ️ 没有发现 draft_app_msg.md，跳过公告更新。")
+        return
+
+    with open(draft_path, 'r', encoding='utf-8') as f:
+        new_content = f.read().strip()
+    
+    if not new_content:
+        print("ℹ️ draft_app_msg.md 内容为空，跳过公告更新。")
+        return
+
+    # 2. 读取目标公告文件
+    if not os.path.exists(target_path):
+        print(f"❌ 找不到目标文件: {target_path}")
+        return
+
+    with open(target_path, 'r', encoding='utf-8') as f:
+        original_text = f.read()
+
+    # 3. 寻找信标并插入
+    if ANCHOR not in original_text:
+        print(f"⚠️ 在 1.公告.md 中未找到信标 '{ANCHOR}'，无法自动插入。请检查文件。")
+        return
+
+    print(f"📝 正在更新端内公告: {target_path}")
+    
+    # 组装插入内容：加上版本号标题和分隔线，看起来更清晰
+    insert_block = f"\n\n### {current_tag} 通知\n{new_content}\n\n---\n"
+    
+    # 执行替换：将 信标 替换为 信标 + 新内容 (这样信标依然存在，供下次使用)
+    updated_text = original_text.replace(ANCHOR, f"{ANCHOR}{insert_block}")
+
+    # 4. 写入回文件
+    with open(target_path, 'w', encoding='utf-8') as f:
+        f.write(updated_text)
+    
+    print("✅ 端内公告更新完成！")
+
 def main():
     """主函数"""
     print("=== 变更日志生成器 ===\n")
@@ -453,6 +519,9 @@ def main():
     with open(output_file, 'w', encoding='utf-8') as f:
         f.write(changelog_content)
     
+    print("\n--- 处理端内公告 ---")
+    update_app_announcement(current_tag)
+
     print(f"✅ 变更日志已生成: {output_file}")
     
     # 显示预览
