@@ -236,11 +236,29 @@ jobs:
           pip install requests
 
       # ✅ 使用新系统替换git-cliff
-      - name: Generate comprehensive changelog
+      - name: Generate comprehensive changelog & Push changes
         id: merge_changelog
         run: |
+          # 1. 配置 Git 身份 (机器人)
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+          
+          # 2. 进入脚本目录运行脚本
           cd scripts
           python changelog_generator.py
+          
+          # 3. 回到根目录，准备提交
+          cd ..
+          
+          # 4. 强制添加被脚本修改的公告文件
+          # (确保路径与你实际仓库结构一致)
+          git add assets/resource/Announcement/1.公告.md
+          
+          # 5. 提交并推送
+          # [skip ci] 防止死循环触发
+          # || echo ... 是为了防止如果没有新公告时，git commit 报错导致流程中断
+          git commit -m "docs: auto update announcement for ${{ needs.meta.outputs.tag }} [skip ci]" || echo "No changes to commit"
+          git push
         env:
           CURRENT_TAG: ${{ needs.meta.outputs.tag }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
