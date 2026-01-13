@@ -13,7 +13,7 @@ from git_operations import get_commit_list
 from version_rules import filter_valid_versions, sort_versions
 from history_manager import HistoryManager
 from version_analyzer import analyze_version_highlights
-from config import HISTORY_CONFIG, OUTPUT_CONFIG
+from History_config import HISTORY_CONFIG, OUTPUT_CONFIG
 from git_operations import get_commit_list, get_merge_commits, get_released_branches_from_main, safe_get_commit_list, ensure_reference_exists, get_commit_timestamp
 
 def group_commits_by_type(commits: List[Dict]) -> Dict[str, List[Dict]]:
@@ -440,8 +440,10 @@ def update_app_announcement(current_tag: str):
     # 假设 assets 在 scripts 的上一级的 assets 目录
     target_path = os.path.join(script_dir, '../assets/resource/Announcement/1.公告.md')
     
-    # 信标定义 (必须与 1.公告.md 里的完全一致)
+    # ---------------------------------------------------------
+    # 👇 关键点在这里！一定要包含 # ---------------------------------------------------------
     ANCHOR = "<!-- Msg-Anch -->"
+    # ---------------------------------------------------------
 
     # 1. 检查草稿是否存在且有内容
     if not os.path.exists(draft_path):
@@ -465,16 +467,17 @@ def update_app_announcement(current_tag: str):
 
     # 3. 寻找信标并插入
     if ANCHOR not in original_text:
-        print(f"⚠️ 在 1.公告.md 中未找到信标 '{ANCHOR}'，无法自动插入。请检查文件。")
+        print(f"⚠️ 在 1.公告.md 中未找到信标 '{ANCHOR}'，无法自动插入。请检查 MD 文件是否已添加该注释。")
         return
 
     print(f"📝 正在更新端内公告: {target_path}")
     
-    # 组装插入内容：加上版本号标题和分隔线，看起来更清晰
-    insert_block = f"\n\n### {current_tag} 通知\n{new_content}\n\n---\n"
+    # 组装插入内容：
+    # 逻辑是：保留旧的信标(以便下次用) + 换行 + 你的新内容 + 换行 + 分隔线
+    insert_block = f"{ANCHOR}\n\n### {current_tag} 通知\n{new_content}\n\n---\n"
     
-    # 执行替换：将 信标 替换为 信标 + 新内容 (这样信标依然存在，供下次使用)
-    updated_text = original_text.replace(ANCHOR, f"{ANCHOR}{insert_block}")
+    # 执行替换
+    updated_text = original_text.replace(ANCHOR, insert_block)
 
     # 4. 写入回文件
     with open(target_path, 'w', encoding='utf-8') as f:
